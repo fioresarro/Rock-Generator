@@ -32,7 +32,8 @@
 <!ELEMENT mat_cloudy (#PCDATA)>
 <!ELEMENT mat_IOR (#PCDATA)>
 <!ELEMENT mat_mossy (#PCDATA)>
-<!ELEMENT random (use_random_seed,user_seed)>
+<!-- CORREZIONE DTD: Incluso l'elemento use_generate nella sequenza di random -->
+<!ELEMENT random (use_generate,use_random_seed,user_seed)>
 <!ELEMENT use_generate (#PCDATA)>
 <!ELEMENT use_random_seed (#PCDATA)>
 <!ELEMENT user_seed (#PCDATA)>
