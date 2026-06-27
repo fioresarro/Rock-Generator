@@ -1,5 +1,5 @@
 # Original Author: Paul "BrikBot" Marshall (2011)
-# Modern Settings & Preset Bridge: Il Tuo Nome/Nickname (2026)
+# Modern Settings & Preset Bridge: Fiorentino Sarro/Orras (2026)
 # Updated for compatibility with Blender 4.2 and Blender 5.0+ Extended Architecture.
 #
 # ##### BEGIN GPL LICENSE BLOCK #####
