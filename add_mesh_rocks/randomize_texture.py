@@ -1,4 +1,10 @@
-# Updated for modern Blender in 2026
+# Original Author: Paul "BrikBot" Marshall (2011)
+# Modern Settings & Preset Bridge: Il Tuo Nome/Nickname (2026)
+# Updated for compatibility with Blender 4.2 and Blender 5.0+ Extended Architecture.
+#
+# ##### BEGIN GPL LICENSE BLOCK #####
+#  Licensed under the GNU General Public License, version 3 (GPLv3).
+# ##### END GPL LICENSE BLOCK #####
 
 try:
     # random_integers è deprecato/rimosso in NumPy moderno, usiamo randint
