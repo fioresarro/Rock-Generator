@@ -1,163 +1,150 @@
 # Paul "BrikBot" Marshall
 # Created: July 1, 2011
-# Last Modified: November 17, 2011
-# Homepage (blog): http://post.darkarsenic.com/
-#                       //blog.darkarsenic.com/
-# Thanks to Meta-Androco, RickyBlender, Ace Dragon, and PKHG for ideas
-#   and testing.
-#
-# Coded in IDLE, tested in Blender 2.59.  NumPy Recommended.
-# Search for "@todo" to quickly find sections that need work.
+# Updated for Modern Blender (v4.0+): 2026
 #
 # ##### BEGIN GPL LICENSE BLOCK #####
-#
-#  The Blender Rock Creation tool is for rapid generation of
-#  mesh rocks in Blender.
-#  Copyright (C) 2011  Paul Marshall
-#
-#  This program is free software: you can redistribute it and/or modify
-#  it under the terms of the GNU General Public License as published by
-#  the Free Software Foundation, either version 3 of the License, or
-#  (at your option) any later version.
-#
-#  This program is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#  GNU General Public License for more details.
-#
-#  You should have received a copy of the GNU General Public License
-#  along with this program.  If not, see <http://www.gnu.org/licenses/>.
-#
+# GPL License text...
 # ##### END GPL LICENSE BLOCK #####
 
 # <pep8 compliant>
 
-import inspect
+import os
 import shutil
-from add_mesh_rocks import utils
+import bpy
 from xml.dom import minidom
 
-basePath = inspect.getfile(inspect.currentframe())[0:-len("settings.py")]
-path = basePath + "add_mesh_rocks.xml"
+# Calcolo dei percorsi compatibile con il sistema di add-on moderno di Blender
+basePath = os.path.dirname(__file__)
+path = os.path.join(basePath, "add_mesh_rocks.xml")
 
+# Gestione del file di configurazione
 try:
     source = minidom.parse(path)
     print("Rock generator settings file found:\n" + path)
-except:
-    print("Rock generator settings file not found.  Creating settings file.")
-    shutil.copy(basePath + "factory.xml", path)
-    source = minidom.parse(path)
+except Exception:
+    print("Rock generator settings file not found. Creating settings file from factory defaults.")
+    factory_path = os.path.join(basePath, "factory.xml")
+    if os.path.exists(factory_path):
+        shutil.copy(factory_path, path)
+        try:
+            source = minidom.parse(path)
+        except Exception as e:
+            print(f"Error parsing factory file: {e}")
+            source = None
+    else:
+        print("Critical Error: factory.xml not found!")
+        source = None
 
-xmlDefault = source.getElementsByTagName('default')[0]
-xmlPresets = source.getElementsByTagName('preset')
 default = []
 presets = []
 
 # ----- Gets and Sets -----#
 
-
 def getDefault():
     global default
     return default
-
 
 def getPresetLists():
     global presets
     return presets
 
-
 def getPreset(ID=0):
     global presets
-    return presets[ID]
+    try:
+        return presets[ID]
+    except IndexError:
+        return default
 
 # ---------- Core ----------#
 
-
 def parse():
-    global xmlDefault
-    global xmlPresets
-    global default
-    global presets
+    global source, default, presets
+    if not source:
+        return {'CANCELLED'}
 
-    # Parse default values
-    default = parseNode(xmlDefault)
+    # Reset delle liste per evitare duplicazioni in caso di ricaricamento
+    presets = []
+    
+    xmlDefault = source.getElementsByTagName('default')
+    if xmlDefault:
+        default = parseNode(xmlDefault[0], title=False)
 
-    # Parse preset values
+    xmlPresets = source.getElementsByTagName('preset')
     for setting in xmlPresets:
-        presets.append(parseNode(setting))
+        presets.append(parseNode(setting, title=True))
 
-    return '{FINISHED}'
+    return {'FINISHED'}
 
+def get_text_from_tag(parent, tag_name, default_val="0.0"):
+    """Funzione helper per estrarre in modo sicuro il testo da un tag specifico"""
+    elements = parent.getElementsByTagName(tag_name)
+    if elements and elements[0].firstChild:
+        return elements[0].firstChild.data.strip()
+    return default_val
 
-# Takes a node and parses it for data.  Relies on that setting.xml has
-#   a valid format as specified by the DTD.
-# For some reason minidom places an empty child node for every other node.
 def parseNode(setting, title=True):
-    loc = 1
-
+    """
+    Sito di estrazione sicuro basato sui nomi dei tag.
+    Risolve definitivamente la fragilità dei nodi childNodes numerici del 2011.
+    """
+    parsed = []
+    
     if title:
-        # Preset name (xmlPreset.childNodes[1]):
-        title = setting.childNodes[loc].childNodes[0].data
-        loc += 2
+        # Estrae il nome del preset
+        name_tag = setting.getElementsByTagName('name')
+        preset_title = name_tag[0].firstChild.data.strip() if name_tag and name_tag[0].firstChild else "Unnamed Preset"
+        parsed.append(preset_title)
 
-    # Preset size values (xmlPreset.childNodes[3]):
-    scaleX = [float(setting.childNodes[loc].childNodes[1].childNodes[3].childNodes[0].data),
-              float(setting.childNodes[loc].childNodes[1].childNodes[5].childNodes[0].data)]
-    scaleY = [float(setting.childNodes[loc].childNodes[3].childNodes[3].childNodes[0].data),
-              float(setting.childNodes[loc].childNodes[3].childNodes[5].childNodes[0].data)]
-    scaleZ = [float(setting.childNodes[loc].childNodes[5].childNodes[3].childNodes[0].data),
-              float(setting.childNodes[loc].childNodes[5].childNodes[5].childNodes[0].data)]
-    skewX = float(setting.childNodes[loc].childNodes[7].childNodes[3].childNodes[0].data)
-    skewY = float(setting.childNodes[loc].childNodes[9].childNodes[3].childNodes[0].data)
-    skewZ = float(setting.childNodes[loc].childNodes[11].childNodes[3].childNodes[0].data)
-    if setting.childNodes[loc].childNodes[13].childNodes[0].data == 'False':
-        use_scale_dis = False
-    else:
-        use_scale_dis = True
-    scale_fac = utils.toList(setting.childNodes[loc].childNodes[15].childNodes[0].data)
-    loc += 2
+    # --- Sezione Size/Scale ---
+    # Cerchiamo i blocchi min/max in modo robusto tramite i tag dedicati
+    def get_min_max(axis_tag_name):
+        axis_element = setting.getElementsByTagName(axis_tag_name)
+        if axis_element:
+            v_min = float(get_text_from_tag(axis_element[0], 'min', '1.0'))
+            v_max = float(get_text_from_tag(axis_element[0], 'max', '1.0'))
+            return [v_min, v_max]
+        return [1.0, 1.0]
 
-    # Presst shape values (xmlPreset.childNodes[5]):
-    deform = float(setting.childNodes[loc].childNodes[1].childNodes[0].data)
-    rough = float(setting.childNodes[loc].childNodes[3].childNodes[0].data)
-    detail = int(setting.childNodes[loc].childNodes[5].childNodes[0].data)
-    display_detail = int(setting.childNodes[loc].childNodes[7].childNodes[0].data)
-    smooth_fac = float(setting.childNodes[loc].childNodes[9].childNodes[0].data)
-    smooth_it = int(setting.childNodes[loc].childNodes[11].childNodes[0].data)
-    loc += 2
+    scaleX = get_min_max('scaleX')
+    scaleY = get_min_max('scaleY')
+    scaleZ = get_min_max('scaleZ')
+    
+    skewX = float(get_text_from_tag(setting, 'skewX', '0.0'))
+    skewY = float(get_text_from_tag(setting, 'skewY', '0.0'))
+    skewZ = float(get_text_from_tag(setting, 'skewZ', '0.0'))
+    
+    use_scale_dis = get_text_from_tag(setting, 'use_scale_dis', 'False') == 'True'
+    
+    # Gestione sicura della conversione della stringa in lista (es: "1,2,3")
+    scale_fac_str = get_text_from_tag(setting, 'scale_fac', '1.0,1.0,1.0')
+    scale_fac = [float(x) for x in scale_fac_str.split(',') if x.strip()]
 
-    # Preset material values (xmlPreset.childNodes[7]):
-    loc += 2
+    parsed.extend([scaleX, scaleY, scaleZ, skewX, skewY, skewZ, use_scale_dis, scale_fac])
 
-    # Preset random values (xmlPreset.childNodes[9]):
-    if setting.childNodes[loc].childNodes[1].childNodes[0].data == 'True':
-        use_generate = True
-    else:
-        use_generate = False
-    if setting.childNodes[loc].childNodes[3].childNodes[0].data == 'False':
-        use_random_seed = False
-    else:
-        use_random_seed = True
-    user_seed = int(setting.childNodes[loc].childNodes[5].childNodes[0].data)
+    # --- Sezione Shape ---
+    deform = float(get_text_from_tag(setting, 'deform', '0.3'))
+    rough = float(get_text_from_tag(setting, 'rough', '2.0'))
+    detail = int(get_text_from_tag(setting, 'detail', '3'))
+    display_detail = int(get_text_from_tag(setting, 'display_detail', '3'))
+    smooth_fac = float(get_text_from_tag(setting, 'smooth_fac', '0.5'))
+    smooth_it = int(get_text_from_tag(setting, 'smooth_it', '1'))
 
-    if title:
-        parsed = [title, scaleX, scaleY, scaleZ, skewX, skewY, skewZ,
-                  use_scale_dis, scale_fac, deform, rough, detail,
-                  display_detail, smooth_fac, smooth_it,
-                  use_generate, use_random_seed, user_seed]
-    else:
-        parsed = [scaleX, scaleY, scaleZ, skewX, skewY, skewZ, use_scale_dis,
-                  scale_fac, deform, rough, detail, display_detail, smooth_fac,
-                  smooth_it, use_generate, use_random_seed, user_seed]
+    parsed.extend([deform, rough, detail, display_detail, smooth_fac, smooth_it])
+
+    # --- Sezione Random / Seed ---
+    use_generate = get_text_from_tag(setting, 'use_generate', 'True') == 'True'
+    use_random_seed = get_text_from_tag(setting, 'use_random_seed', 'True') == 'True'
+    user_seed = int(get_text_from_tag(setting, 'user_seed', '0'))
+
+    parsed.extend([use_generate, use_random_seed, user_seed])
 
     return parsed
 
-
 def save():
-    return '{FINISHED}'
-
+    # Lasciato come stub per compatibilità con la vecchia architettura dell'add-on
+    return {'FINISHED'}
 
 def _print():
     for i in presets:
         print(i)
-    return '{FINISHED}'
+    return {'FINISHED'}
