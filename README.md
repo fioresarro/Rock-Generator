@@ -1,15 +1,15 @@
-# Rock Generator
-Rock Generator add-on for Blender 2.8x, based on code by Paul Marshall, with contributions by Florian Felix, Alexander Gavrilov and possibly others.
+Markdown
+# Rock Generator for Blender 4.2 / 5.0+
 
-# Usage
-- Written instrctuions by Thom Blair III can be found [here](https://blender.stackexchange.com/questions/8746/how-can-i-make-unique-rocks-in-blender-without-having-to-model-them-by-hand/8747#8747)
-- Video instructions by GarageFarm can be found [here](https://www.youtube.com/watch?v=TIKSRes4IGI)
+A modern restoration of the classic procedural rock creation tool originally developed by **Paul "BrikBot" Marshall** in 2011.
 
-You can find out more information on how I've compiled the files in this repository [here](#). 
+## Modern Features & Fixes (2026 Remix)
+* **Blender 5.0+ Ready:** Fixed `object_data_add` exceptions and registration crashes.
+* **Extensions Architecture:** Fully compliant with the modern Blender Extensions system.
+* **Restored Classic UI:** Re-implemented the full axis alignment, displacement, and preset layout.
 
-# Disclaimer
-- I'm not the author of this script, but I've compiled this repository
-- I'm not a Python developer and I'm afraid I have no idea how this script works
-- If somethign doesn't work as expected, I cannot fix it
-
-Contributions are welcome, but are probably better served in the official Blender Contributor's repo (sadly I don't know where to find it - do let me know and I'll add a link here).
+## Credits & License
+* **Original Author:** Paul "BrikBot" Marshall
+* **Modern Porting & Maintenance:** [Fiorentino Sarro/Orras]
+* **AI Collaboration:** Developed with the support of Gemini AI.
+* **License:** GNU General Public License v3 (GPLv3).
